@@ -1,0 +1,19 @@
+{% extends 'workspace.html' %}{% set active_page = 'containers' %}{% set page_title = 'Containers' %}
+{% block workspace_content %}
+<main class="dashboard containers-page">
+  <div class="page-heading"><h1>Containers<span class="brand-dot">.</span></h1><button id="container-refresh" class="ds-button ds-button--secondary" type="button">↻ Refresh</button></div>
+  <div class="container-toolbar"><label class="ds-field">Runtime<select id="container-runtime" class="ds-input" disabled><option>Detecting…</option></select></label><span id="container-connection" class="ds-badge">Checking runtime</span></div>
+  <p id="container-notice" class="ds-notice" role="status">Connecting to local container runtimes…</p>
+  <div id="container-summary" class="container-summary" aria-label="Container summary"></div>
+  <section class="ds-panel container-panel">
+    <div class="container-toolbar"><div id="container-tabs" class="container-tabs" role="group" aria-label="Inventory"><button class="ds-button" data-kind="containers" aria-pressed="true">Containers</button><button class="ds-button ds-button--secondary" data-kind="images" aria-pressed="false">Images</button><button class="ds-button ds-button--secondary" data-kind="volumes" aria-pressed="false">Volumes</button><button class="ds-button ds-button--secondary" data-kind="networks" aria-pressed="false">Networks</button></div><label class="ds-field">Search<input id="container-search" type="search" class="ds-input" placeholder="Filter inventory"></label></div>
+    <div class="table-scroll"><table class="ds-table container-table"><thead id="container-head"></thead><tbody id="container-body"></tbody></table></div>
+    <p id="container-empty" class="ds-text-muted">Select an available runtime.</p>
+  </section>
+  <section id="container-logs" class="ds-panel container-log-panel" hidden><div class="page-heading"><h2 id="container-log-title">Container logs</h2><button id="container-log-close" class="ds-button ds-button--secondary">Close</button></div><p id="container-log-limit" class="ds-text-muted"></p><pre id="container-log-output" class="ds-code" tabindex="0"></pre></section>
+  <p class="ds-text-muted">Uses this Linux account’s local runtime access. Docker uses the user’s rootless socket when present, otherwise the system socket. Podman uses local account storage. Starting, stopping or restarting a container can affect hosted services.</p>
+  <input id="container-csrf" type="hidden" value="{{ session.csrf }}">
+  <dialog id="container-confirm" class="ds-dialog"><form method="dialog"><h2 id="container-confirm-title">Confirm action</h2><p id="container-confirm-message"></p><div class="container-toolbar"><button value="cancel" class="ds-button ds-button--secondary">Cancel</button><button value="confirm" class="ds-button">Confirm</button></div></form></dialog>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/containers.js" defer></script>{% endblock %}

@@ -1,0 +1,112 @@
+"""Offline installer checks: no root, packages, downloads or system services."""
+import io
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+import tempfile
+import unittest
+
+SCRIPT=Path(__file__).resolve().parents[1]/'deploy/install.sh'
+SOURCE=SCRIPT.read_text()
+ARCHIVE_CODE=SOURCE.split("<<'ARCHIVE_PY'\n",1)[1].split('\nARCHIVE_PY\n',1)[0]
+REQUIRED=['app.py','requirements.txt','terminal_service.py','terminal_worker.py','templates/workspace.html','static/vendor/xterm.js']
+
+
+class InstallerTests(unittest.TestCase):
+    def run_script(self,*args):
+        return subprocess.run(['bash',str(SCRIPT),*args],capture_output=True,text=True,timeout=5)
+    def test_plan_without_root_or_network(self):
+        result=self.run_script('--repo','example/DriftOS','--user','dean','--helpers','all','--sharing','both','--plan')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('firewall=1 apps=1 shares=1',result.stdout)
+        self.assertIn('SMB=1 NFS=1',result.stdout)
+    def test_default_plan_has_no_optional_grants(self):
+        result=self.run_script('--repo','example/DriftOS','--user','dean','--plan')
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn('firewall=0 apps=0 shares=0',result.stdout)
+    def test_sharing_implies_only_share_helper(self):
+        result=self.run_script('--repo','example/DriftOS','--user','dean','--sharing','nfs','--plan')
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn('firewall=0 apps=0 shares=1',result.stdout)
+    def test_rejects_bad_inputs_before_mutation(self):
+        cases=[['--repo','https://github.com/owner/repo'],['--repo','owner/repo;id'],['--ref','../escape'],['--user','root'],['--user','dean\nExecStart=id'],['--helpers','anything'],['--sharing','ftp'],['--anything'],['--repo']]
+        for args in cases:
+            with self.subTest(args=args):
+                result=self.run_script('--repo','example/DriftOS','--user','dean','--plan',*args)
+                self.assertNotEqual(result.returncode,0)
+                self.assertNotIn('Installing native',result.stdout)
+    def test_service_render_and_shell_syntax(self):
+        result=self.run_script('--print-unit','--user','dean')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('User=dean',result.stdout);self.assertIn('--workers 1 --threads 12',result.stdout)
+        self.assertIn('--bind 127.0.0.1:8090',result.stdout);self.assertNotIn('NoNewPrivileges',result.stdout)
+        self.assertEqual(subprocess.run(['bash','-n',str(SCRIPT)],capture_output=True).returncode,0)
+    def extract(self,extra=(),omit=None):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
+        root=Path(temp.name);archive=root/'source.tgz';destination=root/'output'
+        with tarfile.open(archive,'w:gz') as tar:
+            for path in REQUIRED:
+                if path==omit:continue
+                value=b'fixture'
+                member=tarfile.TarInfo('repo-commit/'+path);member.size=len(value);member.mode=0o777;tar.addfile(member,io.BytesIO(value))
+            for member,value in extra:tar.addfile(member,io.BytesIO(value) if value is not None else None)
+        result=subprocess.run([sys.executable,'-c',ARCHIVE_CODE,str(archive),str(destination)],capture_output=True,text=True,timeout=5)
+        return result,root,destination
+    def file(self,path,value=b'data'):
+        info=tarfile.TarInfo(path);info.size=len(value);return info,value
+    def test_archive_excludes_private_and_generated_files(self):
+        extra=[self.file('repo-commit/'+path) for path in ['api.json','.env','.git/config','.venv/bin/python','node_modules/thing','__pycache__/app.pyc']]
+        result,_,destination=self.extract(extra)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertTrue((destination/'app.py').is_file());self.assertFalse((destination/'api.json').exists());self.assertFalse((destination/'.git').exists())
+        self.assertEqual((destination/'app.py').stat().st_mode & 0o777,0o755)
+    def test_archive_traversal_and_absolute_paths_rejected(self):
+        for path in ('repo-commit/../../escaped','/tmp/escaped','different-root/escaped'):
+            with self.subTest(path=path):
+                result,root,_=self.extract([self.file(path)])
+                self.assertNotEqual(result.returncode,0);self.assertFalse((root/'escaped').exists())
+    def test_archive_links_and_devices_rejected(self):
+        for kind in (tarfile.SYMTYPE,tarfile.LNKTYPE,tarfile.CHRTYPE):
+            member=tarfile.TarInfo('repo-commit/link');member.type=kind;member.linkname='/etc/passwd'
+            result,_,_=self.extract([(member,None)])
+            self.assertNotEqual(result.returncode,0)
+    def test_duplicate_path_and_missing_assets_rejected(self):
+        result,_,_=self.extract([self.file('repo-commit/app.py')]);self.assertNotEqual(result.returncode,0)
+        result,_,_=self.extract(omit='static/vendor/xterm.js');self.assertNotEqual(result.returncode,0)
+    def environment_code(self,marker,path):
+        code=SOURCE.split(marker,1)[1].split("<<'PY'\n",1)[1].split('\nPY\n',1)[0]
+        return code.replace("'/etc/driftos/driftos.env'",repr(str(path)))
+    def test_private_environment_creation_and_preservation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'private.env'
+            create=self.environment_code('# ENV_CREATE_PY_BEGIN',path)
+            result=subprocess.run([sys.executable,'-c',create,'dean'],capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(result.stdout,'')
+            self.assertEqual(path.stat().st_mode & 0o777,0o600)
+            before=path.read_bytes()
+            validate=self.environment_code('# ENV_VALIDATE_PY_BEGIN',path)
+            result=subprocess.run([sys.executable,'-c',validate,'dean'],capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(path.read_bytes(),before)
+            result=subprocess.run([sys.executable,'-c',validate,'someoneelse'],capture_output=True,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertEqual(path.read_bytes(),before)
+            result=subprocess.run([sys.executable,'-c',create,'dean'],capture_output=True,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertEqual(path.read_bytes(),before)
+    def test_environment_never_evaluates_shell_code(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'private.env';sentinel=Path(temp)/'should-not-exist'
+            path.write_text('DRIFTOS_USER=dean\nDRIFTOS_SECRET_KEY=fixture-only\nEXAMPLE=$(touch '+str(sentinel)+')\n')
+            validate=self.environment_code('# ENV_VALIDATE_PY_BEGIN',path)
+            subprocess.run([sys.executable,'-c',validate,'dean'],capture_output=True,text=True)
+            self.assertFalse(sentinel.exists())
+
+    def test_archive_expansion_limit(self):
+        member=tarfile.TarInfo('repo-commit/oversized');member.size=257*1024*1024
+        # A header advertising an oversized member is enough; tar iteration must fail or reject it.
+        with tempfile.TemporaryDirectory() as temp:
+            archive=Path(temp)/'oversized.tgz'
+            import gzip
+            with gzip.open(archive,'wb') as out:out.write(member.tobuf());out.write(b'\0'*1024)
+            result=subprocess.run([sys.executable,'-c',ARCHIVE_CODE,str(archive),str(Path(temp)/'out')],capture_output=True,timeout=5)
+            self.assertNotEqual(result.returncode,0)
+
+
+if __name__=='__main__':unittest.main()

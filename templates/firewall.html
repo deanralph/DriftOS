@@ -1,0 +1,18 @@
+{% extends 'workspace.html' %}{% set active_page = 'firewall' %}{% set page_title = 'Firewall' %}
+{% block workspace_content %}
+<main class="dashboard firewall-page">
+  <div class="page-heading"><h1>Firewall<span class="brand-dot">.</span></h1><button id="firewall-refresh" class="ds-button ds-button--secondary ds-button--compact" type="button">↻ Refresh</button></div>
+  <div id="firewall-notice" class="ds-notice" role="status">Detecting the installed firewall…</div>
+  <section id="firewall-setup" class="ds-panel firewall-setup" hidden><h2>Administrator setup required</h2><p>Run this once in a server terminal, then refresh this report. It grants your account access to firewall reports and the on/off control; installation does not change firewall state.</p><pre id="firewall-setup-command" class="ds-code"></pre></section>
+  <section class="ds-panel firewall-summary" aria-label="Firewall status"><div class="firewall-emblem" aria-hidden="true">◇</div><div class="firewall-identity"><span class="ds-label">FIREWALL MANAGER</span><h2 id="firewall-name">Detecting…</h2><p id="firewall-installed" class="ds-text-muted">Checking installed tools</p></div><span id="firewall-status" class="ds-badge">CHECKING</span><label class="firewall-switch-label"><span id="firewall-switch-text">Firewall</span><span class="firewall-switch"><input id="firewall-switch" type="checkbox" role="switch" aria-label="Enable firewall" aria-describedby="firewall-switch-note" disabled><span aria-hidden="true"></span></span></label></section>
+  <p id="firewall-switch-note" class="firewall-note">The switch uses existing rules. Enabling may interrupt remote access; disabling removes this manager’s filtering.</p>
+  <div class="firewall-counts"><section class="ds-panel"><span class="ds-label">ALLOW / LIMIT ENTRIES</span><strong id="firewall-allowed">—</strong></section><section class="ds-panel"><span class="ds-label">BLOCK / REJECT ENTRIES</span><strong id="firewall-blocked">—</strong></section><section class="ds-panel"><span class="ds-label">OTHER ENTRIES</span><strong id="firewall-other">—</strong></section></div>
+  <div class="section-title"><h2>Default policies</h2><span class="ds-label" id="firewall-policy-scope">CURRENT REPORT</span></div><section class="ds-panel" id="firewall-policies">Waiting for the firewall report…</section>
+  <div class="section-title"><h2>Rules</h2><span id="firewall-rule-count" class="ds-label">CHECKING</span></div>
+  <section class="ds-panel drives"><div class="table-scroll"><table class="ds-table"><thead><tr><th>Action</th><th>Direction / zone</th><th>Match / service</th><th>Source / details</th><th>Scope</th></tr></thead><tbody id="firewall-rules"><tr><td colspan="5">Waiting for the firewall report…</td></tr></tbody></table></div><div id="firewall-scope" class="table-note">Counts refer to explicit rule entries, not individual ports or observed traffic.</div></section>
+  <details class="ds-panel firewall-raw"><summary>Full manager report</summary><pre id="firewall-raw" class="ds-code">No report yet.</pre></details>
+  <input id="firewall-csrf" type="hidden" value="{{ session.csrf }}">
+  <footer><span>DriftOS <span class="ds-text-muted">/ Firewall</span></span><span id="firewall-updated">Awaiting first report</span></footer>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/firewall.js" defer></script>{% endblock %}

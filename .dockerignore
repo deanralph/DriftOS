@@ -1,0 +1,6 @@
+api.json
+.venv
+.env
+.git
+__pycache__
+node_modules

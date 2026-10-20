@@ -1,0 +1,7 @@
+{
+  "name": "DriftOS",
+  "slug": "driftos",
+  "description": "",
+  "documentation_directory": "docs/wiki/",
+  "url": "http://10.0.0.100:8080"
+}

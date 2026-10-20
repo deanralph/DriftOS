@@ -1,0 +1,17 @@
+{% extends 'workspace.html' %}{% set active_page = 'terminal' %}{% set page_title = 'Terminal' %}
+{% block head %}<link rel="stylesheet" href="/static/vendor/xterm.css">{% endblock %}
+{% block workspace_content %}
+<main class="dashboard terminal-page">
+  <div class="page-heading"><div><h1>Server terminal<span class="brand-dot">.</span></h1></div><span id="terminal-status" class="ds-badge" role="status">● DISCONNECTED</span></div>
+  <section class="terminal-context"><span><span class="ds-status-dot" aria-hidden="true"></span> LOCAL SHELL</span><span>USER / <strong>{{ username }}</strong></span><span>SESSION / INTERACTIVE</span></section>
+  <section class="terminal-panel ds-panel" aria-label="Interactive server terminal">
+    <div class="terminal-toolbar"><span>⌘ <strong>{{ username }}</strong> / shell</span><div><button id="terminal-reconnect" class="ds-button ds-button--small" type="button" hidden>New terminal →</button><button id="terminal-clear" class="ds-button ds-button--secondary ds-button--small" type="button">Clear view</button><button id="terminal-disconnect" class="ds-button ds-button--secondary ds-button--small" type="button" disabled>Disconnect</button></div></div>
+    <div class="terminal-stage"><div id="terminal-screen" aria-label="Server terminal"></div><div id="terminal-start"><span class="terminal-glyph" aria-hidden="true">&gt;_</span><h2>Terminal disconnected</h2><p>Connect to start a terminal as <strong>{{ username }}</strong>.</p><button id="terminal-connect" class="ds-button ds-button--compact" type="button">Connect terminal →</button><p class="terminal-start-note">Commands run directly on this server with your account’s permissions.</p></div></div>
+    <div class="terminal-bottom"><span id="terminal-message" role="status">Disconnected.</span><span id="terminal-size">—</span></div>
+  </section>
+  <div class="terminal-help"><p><kbd>Ctrl</kbd> + <kbd>C</kbd> interrupt <span>·</span> <kbd>Ctrl</kbd> + <kbd>D</kbd> exit <span>·</span> <kbd>↑</kbd> command history</p><p>Disconnecting or signing out ends this shell. Idle timeout: 15 minutes.</p></div>
+  <input type="hidden" id="terminal-csrf" value="{{ session.csrf }}">
+  <footer><span>DriftOS <span class="ds-text-muted">/ A DriftStream project</span></span><span>Encrypted transport when served over HTTPS</span></footer>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/vendor/xterm.js" defer></script><script src="/static/vendor/addon-fit.js" defer></script><script src="/static/terminal.js" defer></script>{% endblock %}

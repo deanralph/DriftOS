@@ -1,0 +1,16 @@
+{% extends 'workspace.html' %}{% set active_page = 'apps' %}{% set page_title = 'Applications' %}
+{% block workspace_content %}
+<main class="dashboard apps-page">
+  <div class="page-heading"><h1>App library<span class="brand-dot">.</span></h1><button id="apps-refresh" class="ds-button ds-button--secondary ds-button--compact" type="button">↻ Refresh</button></div>
+  <div id="apps-notice" class="ds-notice" role="status">Detecting the operating system and installed packages…</div>
+  <section class="ds-panel apps-host"><div><span class="ds-label">OPERATING SYSTEM</span><h2 id="apps-os">Detecting…</h2></div><div><span class="ds-label">PACKAGE MANAGER</span><strong id="apps-manager">—</strong></div><div><span class="ds-label">INSTALLED</span><strong id="apps-installed">—</strong></div></section>
+  <section id="apps-setup" class="ds-panel firewall-setup" hidden><h2>Administrator setup required</h2><p>Run this once in a server terminal to allow installation of the tools listed here, then refresh. Setup does not install packages or start services.</p><pre id="apps-setup-command" class="ds-code"></pre></section>
+  <div class="apps-controls"><label class="ds-field">Filter tools<input id="apps-search" class="ds-input" type="search" placeholder="Search by name or category"></label><label class="ds-field">Show<select id="apps-filter" class="ds-input"><option value="all">All tools</option><option value="installed">Installed</option><option value="available">Not installed</option></select></label></div>
+  <div id="apps-grid" class="apps-grid" aria-live="polite"><p>Reading package status…</p></div>
+  <section id="apps-job" class="ds-panel apps-job" hidden aria-label="Installation progress"><div class="section-title"><h2 id="apps-job-title">Installation</h2><span id="apps-job-state" class="ds-badge" role="status"></span></div><p id="apps-job-message" role="status"></p><details open><summary>Installer output</summary><pre id="apps-job-log" class="ds-code">Waiting for output…</pre></details></section>
+  <p class="apps-footnote">Uses the host’s configured repositories. Packages may install dependencies and run distribution setup scripts. SSH and Samba packages may start services automatically. DriftOS does not configure shares, add firewall rules or enable extra repositories.</p>
+  <input id="apps-csrf" type="hidden" value="{{ session.csrf }}">
+  <footer><span>DriftOS <span class="ds-text-muted">/ Applications</span></span><span id="apps-updated">Awaiting package report</span></footer>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/apps.js" defer></script>{% endblock %}

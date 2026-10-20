@@ -1,0 +1,21 @@
+{% extends 'workspace.html' %}{% set active_page = 'files' %}{% set page_title = 'Files' %}
+{% block workspace_content %}
+<main class="dashboard files-page" data-initial-path="{{ initial_path }}">
+  <div class="page-heading"><h1>Files<span class="brand-dot">.</span></h1><div class="files-actions"><button id="files-new-folder" class="ds-button ds-button--secondary ds-button--compact" type="button" disabled>+ New folder</button><button id="files-upload" class="ds-button ds-button--compact" type="button" disabled>↑ Upload files</button></div></div>
+  <div id="files-notice" class="ds-notice" role="status">Reading folder…</div>
+  <section class="ds-panel files-browser" aria-label="File explorer">
+    <div class="files-toolbar"><div class="files-nav"><button id="files-home" class="ds-button ds-button--secondary ds-button--small" type="button">Home</button><button id="files-up" class="ds-button ds-button--secondary ds-button--small" type="button" disabled>↑ Up</button><button id="files-refresh" class="ds-button ds-button--secondary ds-button--small" type="button">↻ Refresh</button></div><form id="files-path-form"><label class="sr-only" for="files-path">Folder path</label><input id="files-path" class="ds-input" placeholder="/home/user" autocomplete="off" spellcheck="false"><button class="ds-button ds-button--secondary ds-button--small" type="submit">Go</button></form></div>
+    <nav id="files-breadcrumbs" class="files-breadcrumbs" aria-label="Folder breadcrumbs"></nav>
+    <div class="files-filters"><label class="ds-field">Filter this page<input id="files-search" class="ds-input" type="search" placeholder="Search filenames"></label><label class="files-hidden"><input id="files-hidden" type="checkbox"> Show hidden files</label><span id="files-location" class="ds-text-muted"></span></div>
+    <div id="files-dropzone" class="files-dropzone"><div id="files-drop-overlay" aria-hidden="true"><strong>Drop files to upload</strong><span>Into the currently open folder</span></div><div class="table-scroll"><table class="ds-table files-table"><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Permissions</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="files-entries"><tr><td colspan="5">Reading folder…</td></tr></tbody></table></div><div id="files-empty" class="files-empty" hidden>No files in this folder. Drop files here to upload.</div></div>
+    <div class="files-browser-footer"><span id="files-summary">—</span><div><button id="files-previous" class="ds-button ds-button--secondary ds-button--small" type="button" disabled>← Previous</button><button id="files-next" class="ds-button ds-button--secondary ds-button--small" type="button" disabled>Next →</button></div></div>
+  </section>
+  <p id="files-upload-note" class="files-note">Drop files from your desktop anywhere in the explorer to upload automatically. Existing files are never overwritten.</p>
+  <section id="files-queue-panel" class="ds-panel files-queue-panel" hidden aria-label="Upload progress"><div class="section-title"><h2>Uploads</h2><button id="files-clear-queue" class="ds-button ds-button--secondary ds-button--small" type="button">Clear finished</button></div><ul id="files-queue" class="files-queue" aria-live="polite"></ul></section>
+  <input id="files-picker" class="sr-only" type="file" multiple tabindex="-1" aria-label="Choose files to upload">
+  <input id="files-csrf" type="hidden" value="{{ session.csrf }}">
+  <dialog id="files-folder-dialog" class="ds-dialog"><form id="files-folder-form" class="ds-stack"><h2>New folder</h2><label class="ds-field">Folder name<input id="files-folder-name" class="ds-input" autocomplete="off" required maxlength="255"></label><p id="files-folder-error" class="error" role="alert" hidden></p><div class="files-dialog-actions"><button id="files-folder-cancel" class="ds-button ds-button--secondary ds-button--compact" type="button">Cancel</button><button id="files-folder-submit" class="ds-button ds-button--compact" type="submit">Create folder</button></div></form></dialog>
+  <footer><span>DriftOS <span class="ds-text-muted">/ Files</span></span><span id="files-checked">Account permissions apply</span></footer>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/files.js" defer></script>{% endblock %}

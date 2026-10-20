@@ -1,0 +1,82 @@
+/* DriftStream UI v0.2.0 — opt in with class="ds-theme". No dependencies. */
+:root {
+  --ds-bg: #08120f;
+  --ds-surface: #10241b;
+  --ds-surface-raised: #193529;
+  --ds-bg-deep: #030906;
+  --ds-surface-inset: #0b1b13;
+  --ds-surface-hover: #254633;
+  --ds-border-strong: #668552;
+  --ds-accent-soft: #c8e7aa;
+  --ds-text: #e0ecdb;
+  --ds-muted: #a0b6a6;
+  --ds-border: #385b45;
+  --ds-accent: #9ccc77;
+  --ds-accent-hover: #b9e394;
+  --ds-on-accent: #08120f;
+  --ds-warning: #e8c47e;
+  --ds-danger: #f0a49a;
+  --ds-font: ui-monospace, 'Cascadia Code', 'DejaVu Sans Mono', monospace;
+  --ds-font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-pixel: 4px;
+  --ds-shadow: 4px 4px 0 var(--ds-bg-deep);
+  --ds-shadow-inset: inset 2px 2px 0 var(--ds-bg-deep);
+}
+.ds-theme { color-scheme: dark; background: var(--ds-bg); color: var(--ds-text); font-family: var(--ds-font); line-height: 1.65; }
+.ds-theme, .ds-theme *, .ds-theme *::before, .ds-theme *::after { box-sizing: border-box; }
+.ds-theme ::selection { background: var(--ds-accent); color: var(--ds-on-accent); }
+.ds-theme :focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 4px; }
+.ds-container { width: min(100% - 48px, 1280px); margin-inline: auto; }
+.ds-stack { display: grid; gap: var(--ds-space-4); }
+.ds-text-muted { color: var(--ds-muted); }
+.ds-text-accent { color: var(--ds-accent); }
+.ds-heading { font-family: var(--ds-font); font-weight: 700; line-height: 1.15; letter-spacing: -.04em; }
+.ds-label { font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ds-muted); }
+.ds-button { display: inline-flex; justify-content: center; align-items: center; gap: var(--ds-space-4); border: 2px solid var(--ds-accent); border-radius: 0; padding: 12px 18px; background: var(--ds-accent); color: var(--ds-on-accent); font: 700 .875rem/1.4 var(--ds-font); text-decoration: none; cursor: pointer; box-shadow: var(--ds-shadow); }
+.ds-button:hover { background: var(--ds-accent-hover); border-color: var(--ds-accent-hover); }
+.ds-button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #030906; }
+.ds-button--secondary { background: var(--ds-surface); color: var(--ds-text); border-color: var(--ds-border); }
+.ds-button--secondary:hover { background: var(--ds-surface-raised); border-color: var(--ds-accent); }
+.ds-button:disabled, .ds-button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+.ds-panel { border: 2px solid var(--ds-border); padding: var(--ds-space-6); background: var(--ds-surface); box-shadow: var(--ds-shadow); }
+.ds-badge { display: inline-block; border: 1px solid var(--ds-border); padding: 4px 8px; background: var(--ds-surface); color: var(--ds-muted); font: .75rem/1.5 var(--ds-font); }
+.ds-field { display: grid; gap: var(--ds-space-2); font-size: .875rem; }
+.ds-input { width: 100%; min-height: 44px; border: 2px solid var(--ds-border); border-radius: 0; background: var(--ds-bg); color: var(--ds-text); padding: 10px 12px; font: inherit; }
+.ds-input::placeholder { color: var(--ds-muted); opacity: 1; }
+.ds-input:disabled { opacity: .5; cursor: not-allowed; }
+.ds-input[aria-invalid="true"] { border-color: var(--ds-danger); }
+.ds-link { color: var(--ds-accent); text-underline-offset: 4px; }
+.ds-link:hover { color: var(--ds-accent-hover); }
+.ds-notice { padding: var(--ds-space-4); border-left: 4px solid var(--ds-accent); background: var(--ds-surface); color: var(--ds-muted); }
+.ds-pixel-art { image-rendering: pixelated; shape-rendering: crispEdges; }
+@media (prefers-reduced-motion: reduce) { .ds-theme *, .ds-theme *::before, .ds-theme *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+/* v0.2 additions: opt-in variants and documentation/application components.
+   Existing v0.1 palette, selectors and sizes remain compatible. */
+.ds-theme--reading { font-family: var(--ds-font-body); }
+.ds-button--compact { padding: 9px 15px; font-size: .75rem; gap: var(--ds-space-3); }
+.ds-button--small { padding: 5px 10px; font-size: .6875rem; gap: var(--ds-space-2); }
+.ds-panel--cut-corner { position: relative; }
+.ds-panel--cut-corner::before {
+  content: ''; position: absolute; top: -2px; right: -2px;
+  width: calc(var(--ds-pixel) * 2); height: calc(var(--ds-pixel) * 2);
+  background: var(--ds-bg); border-left: 2px solid var(--ds-border); border-bottom: 2px solid var(--ds-border);
+}
+.ds-dialog {
+  background: var(--ds-surface); color: var(--ds-text);
+  border: 2px solid var(--ds-border-strong); border-radius: 0;
+  box-shadow: var(--ds-shadow), 0 25px 80px #0009;
+}
+.ds-dialog::backdrop { background: #030906cc; backdrop-filter: blur(2px); }
+.ds-table { width: 100%; border-collapse: collapse; background: var(--ds-surface); color: var(--ds-text); }
+.ds-table th { text-align: left; font-family: var(--ds-font); background: var(--ds-surface-raised); }
+.ds-table th, .ds-table td { border-bottom: 1px solid var(--ds-border); padding: var(--ds-space-3) var(--ds-space-4); }
+.ds-table tbody tr:hover { background: var(--ds-surface-hover); }
+.ds-status-dot { display: inline-block; width: 6px; height: 6px; background: var(--ds-accent); border-radius: 0; flex-shrink: 0; }
+.ds-code { background: var(--ds-bg-deep); color: var(--ds-text); border: 1px solid var(--ds-border); padding: var(--ds-space-4); font-family: var(--ds-font); overflow: auto; }
