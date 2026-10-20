@@ -102,3 +102,13 @@ The source repository is [deanralph/DriftOS](https://github.com/deanralph/DriftO
 The example explicitly enables all three admin helpers, Samba/NFS package setup and direct LAN HTTP access on port 8090. Core-only installs omit `--helpers all --sharing both`. The installer creates `/opt/driftos`, a private persistent environment, and an enabled systemd/Gunicorn service. With `--lan`, open `http://SERVER_LAN_IP:8090`; the service binds all IPv4 interfaces, resets HTTPS-cookie/origin settings for direct HTTP, and adds source-scoped rules to active UFW/firewalld. Default client ranges are 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16; repeat `--lan-cidr` to override them, or `--no-firewall` to skip rules. Without `--lan`, use the printed SSH tunnel command. HTTP is unencrypted, so use a trusted LAN. HTTPS/reverse proxy and Docker/Podman provisioning remain separate. Optional package scripts may start sharing services; SMB setup appends the managed include and disables Unix password synchronization after backup/validation. Skipped helper flags do not revoke/update existing grants.
 
 Application/unit/config backups are private under `/var/backups/driftos`; core failure attempts rollback, while native packages and optional setup are retained. Actual privileged installation/rollback has not been executed here; see [Deployment](docs/wiki/deployment.md), [Recovery](docs/wiki/data-and-recovery.md) and [Verification](docs/wiki/verification.md).
+
+## Uninstall
+
+Preview with `bash deploy/uninstall.sh --plan`. To stop/remove the native DriftOS installation:
+
+```bash
+( set -e; uninstaller=$(mktemp); trap 'rm -f "$uninstaller"' EXIT; curl -fsS --proto '=https' --connect-timeout 15 --max-time 60 https://raw.githubusercontent.com/deanralph/DriftOS/main/deploy/uninstall.sh -o "$uninstaller"; sudo bash "$uninstaller" --yes )
+```
+
+This removes the service, `/opt/driftos` including its virtualenv, private app environment, helper scripts and sudo grants. Package-manager packages stay installed. Shared data/definitions/users/groups, native services, job/share state, custom systemd drop-ins, backups and firewall rules are preserved. A private config/helper recovery backup is created first. Active tracked package/helper jobs and unmarked/mounted app folders block removal. See [Deployment](docs/wiki/deployment.md) and [Recovery](docs/wiki/data-and-recovery.md). The script has isolated tests; it has not been run as a live privileged uninstall.

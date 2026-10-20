@@ -260,3 +260,25 @@ sudo bash deploy/install.sh --repo deanralph/DriftOS --user dean --lan --lan-cid
 When active, UFW receives source-scoped persistent rules; firewalld receives runtime/permanent source-scoped rules in active zones without a reload. Multiple active managers are rejected without additions. The installer never enables a firewall or edits custom nftables/iptables/cloud/router policies. If no supported active manager is available it prints a notice, and the listener can still be exposed on every IPv4 interface. Previous allows/denies are not removed; check effective policy rather than assuming source-scoped additions enforce exclusive access. These rules are after the core health checkpoint and outside core rollback.
 
 LAN selection explicitly rewrites saved `DRIFTOS_HTTPS=0` and removes `DRIFTOS_ORIGIN`, preserving the key/account. This allows HTTP session cookies and automatic same-host WebSocket Origin checks. To return to an HTTPS reverse-proxy deployment, run with `--localhost`, configure the private HTTPS/origin settings again and restart; switching back does not delete previous LAN firewall rules. No live client/network/firewall acceptance has been executed on the target server by the agent.
+
+## Uninstall the native service/application
+
+Review the fixed removal/retention plan without root or changes:
+
+```bash
+bash deploy/uninstall.sh --plan
+```
+
+Run the published uninstaller on the server:
+
+```bash
+( set -e; uninstaller=$(mktemp); trap 'rm -f "$uninstaller"' EXIT; curl -fsS --proto '=https' --connect-timeout 15 --max-time 60 https://raw.githubusercontent.com/deanralph/DriftOS/main/deploy/uninstall.sh -o "$uninstaller"; sudo bash "$uninstaller" --yes )
+```
+
+The command downloads completely before execution. Use a reviewed full Git commit in the URL instead of `main` to pin the removal code. `--yes` accepts the printed plan; omit it to require terminal confirmation. No Linux username is needed because only the fixed systemd installation is removed. There are no arbitrary-path or package-purge options.
+
+Removes `driftos.service` from `/etc/systemd/system`, marked `/opt/driftos` including `.venv`, `/etc/driftos/driftos.env`, empty `/etc/driftos`, `/usr/local/libexec/driftos-{apps,firewall,shares}`, and matching `/etc/sudoers.d/driftos-*` grants. Active DriftOS logins/terminals end. A package install or helper operation holding its broker lock must finish first. Marked installer deployments are supported; an unmarked/manual app folder is deliberately refused for review. Mounted app subtrees must be unmounted first; the script will not recursively traverse/delete a separate mounted filesystem.
+
+Keeps all package-manager packages, native SMB/NFS services/configuration, share data, users/groups/password databases, application job/share state, custom systemd drop-ins, backups and firewall rules. Earlier installer releases did not record exclusive rule ownership; deleting an identical port rule could remove an administrator’s pre-existing policy, so the uninstaller makes no firewall changes. After removal review TCP 8090 policy manually. Native share users may still log into retained shares; uninstalling the dashboard is not revocation of hosted-service access.
+
+Removed unit/config/helper/grant files are first copied into root-private `/var/backups/driftos/uninstall-*`, including any private signing key. The backup path is printed, not its contents. This is configuration recovery material, not a copy of shared files or a full source/venv backup. Existing installer backups are retained. Uninstaller coordination locks remain under `/run` until reboot rather than being unlinked while held. Actual target uninstall remains unverified; always inspect the printed plan and retained native services before production use.

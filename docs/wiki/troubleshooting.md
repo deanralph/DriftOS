@@ -127,3 +127,15 @@ The initial installer required `/var/backups` to already exist, so minimal serve
 If a client cannot connect, check `systemctl status driftos`, the generated unit's `--bind 0.0.0.0:8090`, server-local `/health`, the actual server LAN IPv4 address and the client source subnet. `--lan-cidr` must cover the address seen by the server; VPN/CGNAT subnets need explicit overrides if outside RFC1918. Check native UFW/firewalld and any nftables/cloud/router policies. No active supported manager means the installer did not configure rules. Multiple managers or unknown UFW status stop automatic rule additions after core installation.
 
 Login redirects or terminal Origin failures after switching from HTTPS may indicate stale settings: `--lan` resets Secure cookies and clears the saved origin, then restarts the app. Existing browser cookies/logins are invalidated by service restarts; sign in again. LAN mode is IPv4 HTTP only. A source-scoped allow rule is additive and does not remove earlier broad allows or higher-priority deny policies. Returning to loopback does not revoke prior rules; review native configuration deliberately.
+
+## Uninstaller
+
+- **Unmarked/invalid application folder:** only an installer-marked `/opt/driftos` with an expected repository/commit marker is recursively removed. Inspect a manual/partial installation and preserve its data before cleanup; do not forge a marker merely to bypass review.
+- **Mounted subtree:** unmount the reported filesystem after checking dependent workloads. Shared files outside the application tree are retained; the uninstaller never traverses a separate app mount.
+- **Package/helper job running:** wait for the tracked operation to finish, then retry. Do not remove lock files or terminate a package manager to force uninstall. The installer/uninstaller also share a coordination lock.
+- **Unsafe path/custom unit:** group/world-writable or non-owned administrative paths, symlinked directories and an unrelated/custom linked service are refused. Correct the specific deployment deliberately; avoid blanket chmod/chown commands.
+- **Service stop/disable failed:** files remain until teardown succeeds. Inspect the native systemd status/journal. A masked service can be unlinked as its mask without touching `/dev/null`.
+- **Some files already removed:** rerunning cleanup tolerates missing targets. If deletion failed midway, service/grants can already be removed; check root-private recovery backup and actual source/config state before recovery.
+- **Shares/users or firewall rules remain:** intentional retention. Package-manager packages, SMB/NFS service/configuration, share data/identities, job/share state, custom drop-ins, backups and native firewall rules are not purged. Review those independently if retiring the whole server/workload. Never assume uninstall revokes native SMB/NFS access.
+
+No real privileged uninstall was run during development; root/systemd and target-host acceptance remain unverified.

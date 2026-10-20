@@ -55,3 +55,7 @@ Source repository: [deanralph/DriftOS](https://github.com/deanralph/DriftOS). In
 The installer accepts `--lan` to expose IPv4 HTTP on `0.0.0.0:8090` and prints `http://SERVER_LAN_IP:8090`; the README download-and-run example selects this mode. Default invocation without `--lan` still uses loopback/SSH-tunnel access. LAN mode clears a saved HTTPS origin and sets Secure cookies off for direct HTTP while preserving the signing key and other settings. HTTP transmits login traffic without encryption; use a trusted LAN.
 
 LAN mode adds TCP 8090 allow rules for active UFW or firewalld, source-restricted to RFC1918 IPv4 ranges by default. `--lan-cidr` overrides the clients, and `--no-firewall` skips additions. Rules do not remove existing broader rules or install/enable a firewall; with no active supported firewall the installer reports manual policy is needed. Binding all interfaces alone is not a LAN-only security boundary on a public-facing server.
+
+## Native application uninstall
+
+`deploy/uninstall.sh` stops/disables DriftOS and removes the installer-managed `/opt/driftos` application/virtualenv, native unit, private app environment and all three helper scripts/sudo grants. It keeps OS packages, native sharing services, share definitions/data/accounts/groups, job/share state, installer backups, custom systemd drop-ins and firewall rules. It backs up removed configuration/helper files privately before deletion and refuses unmarked application folders or mounted app subtrees. No real host uninstall has been executed by the agent.

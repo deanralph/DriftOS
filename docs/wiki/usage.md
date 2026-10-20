@@ -98,3 +98,9 @@ Default runtime access is through an SSH tunnel from your computer to server loo
 ## LAN access
 
 Use the installer's `--lan` option and open `http://SERVER_LAN_IP:8090`. Select your actual server LAN address, not localhost on the client. Sign in with the configured server Linux account. This HTTP mode does not encrypt credentials or terminal traffic. The installer adds source-restricted allow rules only for active UFW/firewalld; default allowed source networks are the standard three private IPv4 ranges. Use repeated `--lan-cidr` values to choose narrower networks or `--no-firewall` for manual policy. Other firewall layers and existing rules can still permit/block traffic. Default installation without the LAN flag remains accessible through the SSH tunnel.
+
+## Remove DriftOS
+
+Preview `bash deploy/uninstall.sh --plan`, then run the published download-and-run command in Deployment on the server. It stops the dashboard service and removes its application/venv, private environment, native unit and helper permissions, without uninstalling package-manager packages. Share data/users/definitions, native SMB/NFS services, job/share metadata, custom drop-ins and backups stay. Firewall rules also stay for explicit review because earlier installers did not record their exclusive ownership.
+
+Close active terminal work and let application installation jobs/helper operations finish first; broker locks prevent removal during those operations. A failed service stop prevents file removal. A marked app folder is required for recursive cleanup; manual installs and mounted subtrees require review. Configuration backup location is printed. Uninstall removes this management UI, not the retained services it previously managed.
