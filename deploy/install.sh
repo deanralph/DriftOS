@@ -146,7 +146,7 @@ install -d -m 0700 /run/driftos-installer
 command -v flock >/dev/null || fail 'Install util-linux (flock) before running this installer.'
 exec 9>/run/driftos-installer/lock
 flock -n 9 || fail 'Another DriftOS installer is running.'
-printf '\nInstalling native prerequisites…\n' 
+printf '\nInstalling native prerequisites…\n'
 if [[ $manager == apt ]]; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv python3-pip python3-dev build-essential libpam0g sudo curl ca-certificates util-linux passwd
@@ -311,8 +311,8 @@ if [[ -d /opt/driftos ]]; then rm -rf -- /opt/driftos; fi
 mv "$staging/source" /opt/driftos
 # Build at the final path: virtualenv executable shebangs are not relocatable.
 install -d -o "$account" -g "$(id -gn "$account")" -m 0755 /opt/driftos/.venv
-runuser -u "$account" -- env -i HOME="$account_home" USER="$account" LOGNAME="$account" PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /bin/sh -c 'cd /opt/driftos && exec python3 -m venv .venv' 
-runuser -u "$account" -- env -i HOME="$account_home" USER="$account" LOGNAME="$account" PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /bin/sh -c 'cd /opt/driftos && exec .venv/bin/python -m pip install --no-input -r requirements.txt' 
+runuser -u "$account" -- env -i HOME="$account_home" USER="$account" LOGNAME="$account" PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /bin/sh -c 'cd /opt/driftos && exec python3 -m venv .venv'
+runuser -u "$account" -- env -i HOME="$account_home" USER="$account" LOGNAME="$account" PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /bin/sh -c 'cd /opt/driftos && exec .venv/bin/python -m pip install --no-input -r requirements.txt'
 if [[ ! -f /etc/driftos/driftos.env ]]; then
   # ENV_CREATE_PY_BEGIN
   python3 - "$account" <<'PY'
