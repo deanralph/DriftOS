@@ -98,6 +98,41 @@ class InstallerTests(unittest.TestCase):
             subprocess.run([sys.executable,'-c',validate,'dean'],capture_output=True,text=True)
             self.assertFalse(sentinel.exists())
 
+    def directory_check(self,path,owner='0'):
+        functions=SOURCE.split('# ADMIN_DIR_FUNCTIONS_BEGIN\n',1)[1].split('# ADMIN_DIR_FUNCTIONS_END',1)[0]
+        wrapper="""set -e
+fail() { printf '%s\\n' "$*" >&2; exit 1; }
+stat() { if [[ $2 == '%u' ]]; then printf '%s' "$TEST_OWNER"; else command stat "$@"; fi; }
+install() { local target=${!#}; mkdir -- "$target"; chmod 0755 "$target"; }
+"""
+        import os
+        return subprocess.run(['bash','-c',wrapper+functions+'\nensure_admin_dir "$1"','fixture',str(path)],env=dict(os.environ,TEST_OWNER=owner),capture_output=True,text=True)
+    def test_missing_administrative_directory_created(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target=Path(temp)/'backups'
+            result=self.directory_check(target)
+            self.assertEqual(result.returncode,0,result.stderr);self.assertTrue(target.is_dir())
+            self.assertEqual(target.stat().st_mode & 0o777,0o755)
+            target.chmod(0o700)
+            self.assertEqual(self.directory_check(target).returncode,0)
+            self.assertEqual(target.stat().st_mode & 0o777,0o700)
+    def test_existing_unsafe_directory_not_repaired(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);target=root/'backups';target.mkdir();target.chmod(0o777)
+            self.assertNotEqual(self.directory_check(target).returncode,0)
+            self.assertEqual(target.stat().st_mode & 0o777,0o777)
+            target.chmod(0o755)
+            self.assertNotEqual(self.directory_check(target,owner='1000').returncode,0)
+            link=root/'link';link.symlink_to(target,target_is_directory=True)
+            self.assertNotEqual(self.directory_check(link).returncode,0)
+            missing=root/'dangling';missing.symlink_to(root/'absent',target_is_directory=True)
+            self.assertNotEqual(self.directory_check(missing).returncode,0)
+    def test_missing_directory_under_writable_parent_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);root.chmod(0o777);target=root/'backups'
+            self.assertNotEqual(self.directory_check(target).returncode,0)
+            self.assertFalse(target.exists())
+
     def test_archive_expansion_limit(self):
         member=tarfile.TarInfo('repo-commit/oversized');member.size=257*1024*1024
         # A header advertising an oversized member is enough; tar iteration must fail or reject it.

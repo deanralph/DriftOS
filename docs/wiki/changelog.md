@@ -67,3 +67,7 @@ Initialized project Git history on `main` and configured `https://github.com/dea
 The local initial source commit is `c17dbf6`. HTTPS push could not authenticate because no GitHub credentials were available; strict SSH checking also found no verified GitHub host key. Initial upload remains pending authentication on this machine. Installer trailing whitespace was removed and its 12 offline tests rerun successfully on 20 October; Bash syntax and Git whitespace checks passed.
 
 GitHub authentication was subsequently completed, and the initial upload to [deanralph/DriftOS](https://github.com/deanralph/DriftOS) succeeded on `main`. Remote branch `45efcebbf426fc97079acad7f3fa9fba522e082e` matched local HEAD after push. The published installer at that commit was downloaded without execution and matched the local source byte-for-byte. The earlier pending-authentication blocker is resolved.
+
+## 20 October 2026 — Missing backup directory installer fix
+
+Fixed `Unsafe administrative directory: /var/backups` when the directory is absent: validate parents and create missing administrative directories root-owned 0755, preserving strict checks for unsafe existing paths. Added three offline regression cases covering missing/existing directories, retained modes, ownership, writable parents, symlinks and dangling links. All 15 installer tests, 136 full-suite tests and Bash syntax validation passed; real target-server installation remains unverified.

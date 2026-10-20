@@ -129,12 +129,27 @@ fi
 existing_dropins=$(systemctl show driftos.service --property=DropInPaths --value 2>/dev/null || true)
 [[ -z $existing_dropins ]] || fail 'Existing systemd drop-ins could override the deployment. Review and migrate them before using this installer.'
 
-# Fixed destinations only. Refuse symlinks or user-writable administrative parents.
-# Bootstrap Python is installed below, so use shell checks for the initial root paths.
-for path in /opt /etc /etc/systemd /etc/systemd/system /var /var/backups /run; do
+# ADMIN_DIR_FUNCTIONS_BEGIN
+check_admin_dir() {
+  local path=$1 mode
   [[ -d $path && ! -L $path && $(stat -c '%u' "$path") == 0 ]] || fail "Unsafe administrative directory: $path"
   mode=$(stat -c '%a' "$path")
   (( (8#$mode & 0022) == 0 )) || fail "Writable administrative directory: $path"
+}
+ensure_admin_dir() {
+  local path=$1
+  if [[ ! -e $path && ! -L $path ]]; then
+    check_admin_dir "$(dirname -- "$path")"
+    install -d -o root -g root -m 0755 "$path"
+  fi
+  check_admin_dir "$path"
+}
+# ADMIN_DIR_FUNCTIONS_END
+# Minimal server images may omit /var/backups or other standard directories.
+# Validate each parent before creation; never repair unsafe existing paths silently.
+check_admin_dir /
+for path in /opt /etc /etc/systemd /etc/systemd/system /var /var/backups /run; do
+  ensure_admin_dir "$path"
 done
 
 if [[ -e /run/driftos-installer || -L /run/driftos-installer ]]; then

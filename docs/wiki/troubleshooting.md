@@ -117,3 +117,7 @@ No real share server/client integration was executed on this host; provisioning 
 - **Tunnel login fails after an HTTPS deployment:** installer preserves private environment settings, including Secure cookies and origin. Continue using the intended HTTPS origin or deliberately reconfigure the deployment; do not assume an update resets it to first-install HTTP.
 
 Backups contain private configuration and accumulate under `/var/backups/driftos`. Review retention manually. Actual server deployment and rollback remain unverified; source is hosted at `https://github.com/deanralph/DriftOS`.
+
+### Unsafe administrative directory: /var/backups
+
+The initial installer required `/var/backups` to already exist, so minimal server images could trigger this error before package/application installation. The corrected installer validates the existing parent and creates the absent directory root-owned mode 0755. Download and rerun the current script from `main`. If the directory already exists and the error remains, inspect it with `sudo stat -c '%A %a %U:%G %n' /var /var/backups` and check for symlinks; unsafe existing paths are intentionally still rejected. Do not use blanket permission/ownership changes to suppress the check.

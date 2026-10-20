@@ -10,7 +10,7 @@ node --check static/app.js
 .venv/bin/python -m py_compile app.py tests/test_app.py
 ```
 
-Expected for the current version: 133 unittest cases pass, syntax checks exit zero. Terminal tests additionally require `requirements-dev.txt`, loopback socket access and host PTY support. Tests use Flask's in-process test client. PAM success/failure is mocked, but metrics are collected from the actual environment and terminal tests execute real local shells. Tests cover anonymous access rejection, CSRF rejection, failed login and throttling, session/login/logout lifecycle, real metric shape/root mount, configured account restrictions, headers/static assets, and 503 metric failure handling. No production credentials are required.
+Expected for the current version: 136 unittest cases pass, syntax checks exit zero. Terminal tests additionally require `requirements-dev.txt`, loopback socket access and host PTY support. Tests use Flask's in-process test client. PAM success/failure is mocked, but metrics are collected from the actual environment and terminal tests execute real local shells. Tests cover anonymous access rejection, CSRF rejection, failed login and throttling, session/login/logout lifecycle, real metric shape/root mount, configured account restrictions, headers/static assets, and 503 metric failure handling. No production credentials are required.
 
 Manual target-host acceptance: sign in with the configured Linux account; verify wrong password fails; verify locked/expired accounts fail according to PAM policy; compare metrics with host tools; refresh; disconnect service and check stale warning; logout and confirm `/api/stats` returns 401. Test desktop/mobile layouts and HTTPS Secure-cookie behavior on deployment.
 
@@ -148,3 +148,7 @@ No actual GitHub repository endpoint was supplied/published or downloaded by the
 ## GitHub publication — 20 October 2026
 
 After user-completed GitHub authentication, `git push -u origin main` succeeded to `https://github.com/deanralph/DriftOS.git`. `git ls-remote origin refs/heads/main` and local `git rev-parse HEAD` both returned `45efcebbf426fc97079acad7f3fa9fba522e082e`; the working tree was clean. A HTTPS download of the installer at this commit matched local `deploy/install.sh` byte-for-byte, SHA-256 `a4a847ab5d9d273ab3e336a673f4c0a2108030336d96538d063d1d4f8b5beaa4`. Credentials/`.env`, virtualenvs and Node dependencies were confirmed excluded from Git. Download verification did not execute the installer or provision a server. This record is added in a follow-up documentation commit.
+
+## Missing administrative directory regression — 20 October 2026
+
+On the local Linux/Python 3.14 environment, `bash -n deploy/install.sh` passed; `.venv/bin/python -m unittest tests.test_installer -q` passed 15 tests and `.venv/bin/python -m unittest discover -s tests -q` passed 136 tests. New directory fixtures mock root ownership/install operations without host changes and verify missing-directory creation, existing-mode preservation, and rejection of unsafe owners/modes, writable parents and existing/dangling symlinks. The user-reported `/var/backups` failure occurred in the previous installer’s preflight; the fix does not execute or validate a complete target-server installation. Source base: `b8c7eed`; subsequent fix commit is available in Git history.
