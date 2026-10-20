@@ -188,10 +188,10 @@ The Bash installer is `deploy/install.sh`. It expects a server booted with syste
 The source repository is [deanralph/DriftOS](https://github.com/deanralph/DriftOS). Replace `dean` below with the existing server account. `ref=main` tracks the current branch; using a reviewed full commit SHA pins both bootstrap and application code. The command downloads successfully to a temporary file before executing it; it does not execute a partially downloaded pipe.
 
 ```bash
-( set -e; repo="deanralph/DriftOS"; ref="main"; installer=$(mktemp); trap 'rm -f "$installer"' EXIT; curl -fsS --proto '=https' --connect-timeout 15 --max-time 60 "https://raw.githubusercontent.com/$repo/$ref/deploy/install.sh" -o "$installer"; sudo bash "$installer" --repo "$repo" --ref "$ref" --user dean --helpers all --sharing both --yes )
+( set -e; repo="deanralph/DriftOS"; ref="main"; installer=$(mktemp); trap 'rm -f "$installer"' EXIT; curl -fsS --proto '=https' --connect-timeout 15 --max-time 60 "https://raw.githubusercontent.com/$repo/$ref/deploy/install.sh" -o "$installer"; sudo bash "$installer" --repo "$repo" --ref "$ref" --user dean --helpers all --sharing both --lan --yes )
 ```
 
-That example explicitly opts into all three administrative helpers plus SMB/NFS packages. `--sharing smb`/`both` also configures the managed Samba include and effective `unix password sync = no`; this changes password-synchronization policy for the native server, after backing up its main configuration. Existing Samba must be standalone with a supported local backend. Package scripts can start native services. Review the intended repository and flags before running with sudo. No private-repository token flow is provided.
+That example explicitly opts into all three administrative helpers, SMB/NFS packages and LAN HTTP access. In LAN mode open `http://SERVER_LAN_IP:8090`; see the LAN section below for additive firewall rules and cookie/origin changes. `--sharing smb`/`both` also configures the managed Samba include and effective `unix password sync = no`; this changes password-synchronization policy for the native server, after backing up its main configuration. Existing Samba must be standalone with a supported local backend. Package scripts can start native services. Review the intended repository and flags before running with sudo. No private-repository token flow is provided.
 
 To preview locally, without root, downloading source or changing the server:
 
@@ -214,7 +214,7 @@ bash deploy/install.sh --user dean --print-unit
 
 The installer creates root-owned `/opt/driftos` source, its account-owned `.venv`, root-only `/etc/driftos/driftos.env`, `/etc/systemd/system/driftos.service`, and `/opt/driftos/INSTALLATION` recording repository/ref/resolved commit. New signing keys are generated directly into mode-0600 configuration, never printed. Existing private configuration is preserved after validating the account and key; it is not shell-executed. Existing user-owned application roots, unsafe administrative paths, conflicting listeners (when DriftOS is not already active) and systemd drop-ins require manual review/migration before installation. Keep free disk space for a new download/virtualenv plus a complete backup of the former application.
 
-After successful install, run this **on your computer**, replacing SERVER_IP and account:
+For loopback mode (omit `--lan`), run this **on your computer**, replacing SERVER_IP and account:
 
 ```bash
 ssh -N -L 18090:127.0.0.1:8090 dean@SERVER_IP
@@ -239,3 +239,24 @@ For direct HTTPS access, configure the reverse proxy separately using this page'
 ### Minimal-server administrative directories
 
 The installer creates missing standard administrative directories such as `/var/backups` only after validating that their parent is root-owned, a real directory and not group/world-writable. Existing directories are checked without changing ownership or mode. Existing symlinks (including dangling links), non-root ownership and writable administrative directories remain errors. This fixes the initial installer’s incorrect rejection of minimal server images where `/var/backups` does not exist. Rerun the current GitHub installer command to obtain the fix; do not broadly chmod/chown `/var` or bypass path validation.
+
+## Direct LAN access on port 8090
+
+Add `--lan` to the installer command to select direct HTTP access, including when updating an existing installation. Open `http://<SERVER_LAN_IP>:8090` from another client. No SSH tunnel is needed in this mode. The app listens on all IPv4 interfaces, so use an appropriate native/network policy on servers with public interfaces. Login/share passwords and terminal traffic are not encrypted by HTTP; this mode is intended for a trusted LAN.
+
+```bash
+sudo bash deploy/install.sh --repo deanralph/DriftOS --ref main --user dean --helpers all --sharing both --lan --yes
+```
+
+Optional narrower rule selection:
+
+```bash
+# Illustrative client subnet; replace with the actual client network.
+sudo bash deploy/install.sh --repo deanralph/DriftOS --user dean --lan --lan-cidr 192.168.1.0/24 --yes
+```
+
+`--lan-cidr` is repeatable (up to 16 IPv4 CIDRs) and replaces the default RFC1918 client ranges. It controls additive rules, not the socket bind address. `--no-firewall` suppresses rule creation. Existing helpers are not updated by an invocation that omits their flags. Native packages/helper/sharing choices remain independent of listener mode.
+
+When active, UFW receives source-scoped persistent rules; firewalld receives runtime/permanent source-scoped rules in active zones without a reload. Multiple active managers are rejected without additions. The installer never enables a firewall or edits custom nftables/iptables/cloud/router policies. If no supported active manager is available it prints a notice, and the listener can still be exposed on every IPv4 interface. Previous allows/denies are not removed; check effective policy rather than assuming source-scoped additions enforce exclusive access. These rules are after the core health checkpoint and outside core rollback.
+
+LAN selection explicitly rewrites saved `DRIFTOS_HTTPS=0` and removes `DRIFTOS_ORIGIN`, preserving the key/account. This allows HTTP session cookies and automatic same-host WebSocket Origin checks. To return to an HTTPS reverse-proxy deployment, run with `--localhost`, configure the private HTTPS/origin settings again and restart; switching back does not delete previous LAN firewall rules. No live client/network/firewall acceptance has been executed on the target server by the agent.

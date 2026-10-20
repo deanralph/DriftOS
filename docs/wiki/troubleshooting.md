@@ -121,3 +121,9 @@ Backups contain private configuration and accumulate under `/var/backups/driftos
 ### Unsafe administrative directory: /var/backups
 
 The initial installer required `/var/backups` to already exist, so minimal server images could trigger this error before package/application installation. The corrected installer validates the existing parent and creates the absent directory root-owned mode 0755. Download and rerun the current script from `main`. If the directory already exists and the error remains, inspect it with `sudo stat -c '%A %a %U:%G %n' /var /var/backups` and check for symlinks; unsafe existing paths are intentionally still rejected. Do not use blanket permission/ownership changes to suppress the check.
+
+## LAN port 8090
+
+If a client cannot connect, check `systemctl status driftos`, the generated unit's `--bind 0.0.0.0:8090`, server-local `/health`, the actual server LAN IPv4 address and the client source subnet. `--lan-cidr` must cover the address seen by the server; VPN/CGNAT subnets need explicit overrides if outside RFC1918. Check native UFW/firewalld and any nftables/cloud/router policies. No active supported manager means the installer did not configure rules. Multiple managers or unknown UFW status stop automatic rule additions after core installation.
+
+Login redirects or terminal Origin failures after switching from HTTPS may indicate stale settings: `--lan` resets Secure cookies and clears the saved origin, then restarts the app. Existing browser cookies/logins are invalidated by service restarts; sign in again. LAN mode is IPv4 HTTP only. A source-scoped allow rule is additive and does not remove earlier broad allows or higher-priority deny policies. Returning to loopback does not revoke prior rules; review native configuration deliberately.

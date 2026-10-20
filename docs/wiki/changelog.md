@@ -71,3 +71,9 @@ GitHub authentication was subsequently completed, and the initial upload to [dea
 ## 20 October 2026 — Missing backup directory installer fix
 
 Fixed `Unsafe administrative directory: /var/backups` when the directory is absent: validate parents and create missing administrative directories root-owned 0755, preserving strict checks for unsafe existing paths. Added three offline regression cases covering missing/existing directories, retained modes, ownership, writable parents, symlinks and dangling links. All 15 installer tests, 136 full-suite tests and Bash syntax validation passed; real target-server installation remains unverified.
+
+## 20 October 2026 — Direct LAN HTTP installation
+
+Added explicit `--lan` mode for all-IPv4 port 8090 and HTTP cookie/origin migration while retaining loopback as the default. README's primary example selects LAN access. Added validated repeatable client CIDRs and `--no-firewall`; active UFW/firewalld receive source-scoped TCP 8090 rules, runtime/permanent for firewalld without reloading. Multiple active managers are rejected; no firewall is installed/enabled or custom nftables policies changed. Existing rules are retained and firewall steps are outside core rollback. Added offline fixtures for listener/plan, CIDR validation, UFW/firewalld argv, conflict/skip paths and private-environment migration. Real server/firewall/network acceptance remains unverified.
+
+LAN validation: 20 offline installer tests, all 141 regression cases, Bash syntax and generated-unit directive verification (placeholder executable) passed. All firewall behavior was mocked; no host firewall state changed.

@@ -133,6 +133,51 @@ install() { local target=${!#}; mkdir -- "$target"; chmod 0755 "$target"; }
             self.assertNotEqual(self.directory_check(target).returncode,0)
             self.assertFalse(target.exists())
 
+    def test_lan_unit_plan_and_cidr_validation(self):
+        result=self.run_script('--print-unit','--user','dean','--lan')
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn('--bind 0.0.0.0:8090',result.stdout)
+        result=self.run_script('--repo','example/DriftOS','--user','dean','--lan','--lan-cidr','192.168.2.0/24','--plan')
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn('clients: 192.168.2.0/24',result.stdout)
+        for cidr in ('0.0.0.0/0','192.168.999.0/24','192.168.1.0/33','192.168.01.0/24','192.168.1.0/08','192.168.1.0/24;id','*'):
+            with self.subTest(cidr=cidr):self.assertNotEqual(self.run_script('--repo','example/DriftOS','--user','dean','--lan-cidr',cidr,'--plan').returncode,0)
+    def firewall_fixture(self,mode,listen='0.0.0.0',enabled='1'):
+        functions=SOURCE.split('# LAN_FIREWALL_FUNCTIONS_BEGIN\n',1)[1].split('# LAN_FIREWALL_FUNCTIONS_END',1)[0]
+        wrapper="""set -e
+fail() { printf '%s\\n' "$*" >&2; exit 1; }
+log() { printf '%s\\n' "$*" >> "$TEST_LOG"; }
+ufw() { if [[ $1 == status ]]; then if [[ $MODE == ufw || $MODE == both ]]; then echo 'Status: active'; else echo 'Status: inactive'; fi; else log "ufw $*"; fi; }
+systemctl() { [[ $MODE == firewalld || $MODE == both ]]; }
+firewall-cmd() { case "$1" in --state) echo running;; --get-active-zones) printf 'public\\n  interfaces: eth0\\nhome\\n  interfaces: eth1\\n';; *) log "firewall-cmd $*";; esac; }
+listen_address=$LISTEN
+open_firewall=$ENABLED
+lan_cidrs=(192.168.2.0/24)
+"""
+        import os
+        with tempfile.TemporaryDirectory() as temp:
+            log=Path(temp)/'commands'
+            result=subprocess.run(['bash','-c',wrapper+functions+'\nconfigure_lan_firewall'],env=dict(os.environ,TEST_LOG=str(log),MODE=mode,LISTEN=listen,ENABLED=enabled),capture_output=True,text=True)
+            return result,log.read_text() if log.exists() else ''
+    def test_ufw_rule_scoped_to_requested_clients(self):
+        result,commands=self.firewall_fixture('ufw')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(commands.strip(),'ufw allow from 192.168.2.0/24 to any port 8090 proto tcp comment DriftOS LAN')
+    def test_firewalld_runtime_permanent_without_reload(self):
+        result,commands=self.firewall_fixture('firewalld')
+        self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(len(commands.splitlines()),4)
+        self.assertIn('--zone=public --add-rich-rule=',commands);self.assertIn('--permanent --zone=home',commands)
+        self.assertIn('source address="192.168.2.0/24"',commands);self.assertNotIn('--reload',commands);self.assertNotIn('--add-port',commands)
+    def test_firewall_conflict_no_commands_and_optional_skip(self):
+        result,commands=self.firewall_fixture('both');self.assertNotEqual(result.returncode,0);self.assertEqual(commands,'')
+        for mode,listen,enabled in [('none','0.0.0.0','1'),('ufw','127.0.0.1','1'),('ufw','0.0.0.0','0')]:
+            result,commands=self.firewall_fixture(mode,listen,enabled)
+            self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(commands,'')
+    def test_lan_environment_clears_old_https_origin_preserves_secret(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'env';path.write_text('DRIFTOS_USER=dean\nDRIFTOS_SECRET_KEY=fixture-only\nDRIFTOS_HTTPS=1\nDRIFTOS_ORIGIN=https://example.test\n')
+            code=SOURCE.split('# LAN_ENV_PY_BEGIN',1)[1].split("<<'PY_LAN_ENV'\n",1)[1].split('\nPY_LAN_ENV',1)[0].replace("'/etc/driftos/driftos.env'",repr(str(path)))
+            result=subprocess.run([sys.executable,'-c',code],capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr);self.assertIn('DRIFTOS_HTTPS=0',path.read_text());self.assertIn('DRIFTOS_SECRET_KEY=fixture-only',path.read_text());self.assertNotIn('DRIFTOS_ORIGIN',path.read_text());self.assertEqual(path.stat().st_mode & 0o777,0o600)
+
     def test_archive_expansion_limit(self):
         member=tarfile.TarInfo('repo-commit/oversized');member.size=257*1024*1024
         # A header advertising an oversized member is enough; tar iteration must fail or reject it.

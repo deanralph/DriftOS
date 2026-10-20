@@ -10,7 +10,7 @@ node --check static/app.js
 .venv/bin/python -m py_compile app.py tests/test_app.py
 ```
 
-Expected for the current version: 136 unittest cases pass, syntax checks exit zero. Terminal tests additionally require `requirements-dev.txt`, loopback socket access and host PTY support. Tests use Flask's in-process test client. PAM success/failure is mocked, but metrics are collected from the actual environment and terminal tests execute real local shells. Tests cover anonymous access rejection, CSRF rejection, failed login and throttling, session/login/logout lifecycle, real metric shape/root mount, configured account restrictions, headers/static assets, and 503 metric failure handling. No production credentials are required.
+Expected for the current version: 141 unittest cases pass, syntax checks exit zero. Terminal tests additionally require `requirements-dev.txt`, loopback socket access and host PTY support. Tests use Flask's in-process test client. PAM success/failure is mocked, but metrics are collected from the actual environment and terminal tests execute real local shells. Tests cover anonymous access rejection, CSRF rejection, failed login and throttling, session/login/logout lifecycle, real metric shape/root mount, configured account restrictions, headers/static assets, and 503 metric failure handling. No production credentials are required.
 
 Manual target-host acceptance: sign in with the configured Linux account; verify wrong password fails; verify locked/expired accounts fail according to PAM policy; compare metrics with host tools; refresh; disconnect service and check stale warning; logout and confirm `/api/stats` returns 401. Test desktop/mobile layouts and HTTPS Secure-cookie behavior on deployment.
 
@@ -152,3 +152,9 @@ After user-completed GitHub authentication, `git push -u origin main` succeeded 
 ## Missing administrative directory regression — 20 October 2026
 
 On the local Linux/Python 3.14 environment, `bash -n deploy/install.sh` passed; `.venv/bin/python -m unittest tests.test_installer -q` passed 15 tests and `.venv/bin/python -m unittest discover -s tests -q` passed 136 tests. New directory fixtures mock root ownership/install operations without host changes and verify missing-directory creation, existing-mode preservation, and rejection of unsafe owners/modes, writable parents and existing/dangling symlinks. The user-reported `/var/backups` failure occurred in the previous installer’s preflight; the fix does not execute or validate a complete target-server installation. Source base: `b8c7eed`; subsequent fix commit is available in Git history.
+
+## LAN installer option — 20 October 2026
+
+Source base: `2e169f5`. Local Python 3.14/Bash environment. `bash -n deploy/install.sh` and `.venv/bin/python -m unittest tests.test_installer -q` passed (20 installer cases). `.venv/bin/python -m unittest discover -s tests -q` passed all 141 cases. Added fixtures cover LAN unit binding/plan and valid/invalid CIDRs, exact source-scoped UFW commands, runtime/permanent firewalld rich rules across active zones without reload, multi-manager rejection and no-firewall/loopback skip behavior, plus preservation of signing key while resetting HTTPS/origin settings for HTTP. Native firewall commands are replaced by shell fixtures and never execute against the host.
+
+`systemd-analyze verify /tmp/driftos-lan.service` passed outside the sandbox with `/usr/bin/true` substituted for the target executable. This verifies generated directives only. No live UFW/firewalld rule, service installation, target PAM login, client LAN connection or encrypted network deployment was performed. Source/installer changes and local documentation are published to GitHub; actual target acceptance remains required.

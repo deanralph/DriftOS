@@ -12,6 +12,10 @@ Usage: sudo bash install.sh --repo OWNER/REPO [options]
   --ref REF              GitHub branch, tag or commit (default: main)
   --helpers LIST         firewall,apps,shares; all; or none (default: none)
   --sharing LIST         smb,nfs; both; or none (default: none; implies shares helper)
+  --lan                  Listen on 0.0.0.0:8090 for direct LAN HTTP access
+  --localhost            Keep loopback/SSH-tunnel access (default)
+  --lan-cidr CIDR        Allowed IPv4 client subnet (repeatable; default RFC1918)
+  --no-firewall          Skip automatic LAN firewall additions
   --yes                  Accept the printed installation plan without a prompt
   --plan                 Print the plan only; no root, download or host changes
   --print-unit           Print the generated systemd unit only
@@ -19,24 +23,28 @@ Usage: sudo bash install.sh --repo OWNER/REPO [options]
 
 Public repositories only. Supports apt-based Debian/Ubuntu and dnf/yum-based
 Fedora/RHEL families with systemd. Installs /opt/driftos and driftos.service.
-Uses a local browser through an SSH tunnel; no public listener, proxy, TLS,
-firewall changes or Docker/Podman installation are configured.
+Default access uses an SSH tunnel. --lan opts into direct HTTP and source-scoped
+8090/tcp rules for active UFW/firewalld. No proxy, TLS or Docker installation.
 --sharing smb appends the managed Samba include and unix password sync = no;
 existing Samba must be standalone with a local tdbsam/smbpasswd database.
 Native package scripts may start services. Updates stop DriftOS temporarily.
 HELP
 }
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+listen_address=127.0.0.1 open_firewall=1
+lan_cidrs=()
 repo='' revision='main' account=${SUDO_USER:-} helpers='none' sharing='none' accept=0 plan=0 print_unit=0
 while (($#)); do
   case "$1" in
-    --repo|--ref|--user|--helpers|--sharing)
+    --repo|--ref|--user|--helpers|--sharing|--lan-cidr)
       (($# >= 2)) && [[ -n $2 && $2 != --* ]] || fail "Missing value for $1"
       case "$1" in
         --repo) repo=$2;; --ref) revision=$2;; --user) account=$2;;
-        --helpers) helpers=$2;; --sharing) sharing=$2;;
+        --helpers) helpers=$2;; --sharing) sharing=$2;; --lan-cidr) lan_cidrs+=("$2");;
       esac
       shift 2;;
+    --lan) listen_address=0.0.0.0; shift;; --localhost) listen_address=127.0.0.1; shift;;
+    --no-firewall) open_firewall=0; shift;;
     --yes) accept=1; shift;; --plan) plan=1; shift;; --print-unit) print_unit=1; shift;;
     --help|-h) usage; exit 0;; *) fail "Unknown option: $1";;
   esac
@@ -64,6 +72,25 @@ if (( want_firewall || want_apps || want_shares )); then
   [[ $account =~ ^[a-z][a-z0-9_-]*$ ]] || fail 'Helper installers require an account starting with a lowercase letter.'
 fi
 
+# LAN_CIDR_FUNCTIONS_BEGIN
+validate_lan_cidr() {
+  local value=$1 octet prefix
+  [[ $value =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$ ]] || fail 'Use an IPv4 CIDR, for example 192.168.1.0/24.'
+  prefix=${value##*/}
+  [[ $prefix != 0* ]] || fail 'Use canonical CIDR notation without leading zeros.'
+  (( 10#$prefix >= 1 && 10#$prefix <= 32 )) || fail 'CIDR prefix must be 1–32; all-host rules are not allowed.'
+  local -a parts
+  IFS=. read -ra parts <<< "${value%/*}"
+  for octet in "${parts[@]}"; do
+    [[ $octet == 0 || $octet != 0* ]] || fail 'Use canonical IP notation without leading zeros.'
+    (( 10#$octet <= 255 )) || fail 'Invalid CIDR address.'
+  done
+}
+# LAN_CIDR_FUNCTIONS_END
+if ((${#lan_cidrs[@]} == 0)); then lan_cidrs=(10.0.0.0/8 172.16.0.0/12 192.168.0.0/16); fi
+((${#lan_cidrs[@]} <= 16)) || fail 'At most 16 client CIDRs are allowed.'
+for cidr in "${lan_cidrs[@]}"; do validate_lan_cidr "$cidr"; done
+
 write_unit() {
   cat <<UNIT
 [Unit]
@@ -76,7 +103,7 @@ User=$account
 WorkingDirectory=/opt/driftos
 EnvironmentFile=/etc/driftos/driftos.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/driftos/.venv/bin/gunicorn --worker-class gthread --workers 1 --threads 12 --timeout 120 --bind 127.0.0.1:8090 --access-logfile - --error-logfile - app:app
+ExecStart=/opt/driftos/.venv/bin/gunicorn --worker-class gthread --workers 1 --threads 12 --timeout 120 --bind $listen_address:8090 --access-logfile - --error-logfile - app:app
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=45
@@ -91,7 +118,8 @@ DriftOS installation plan
   Repository: $repo @ $revision (resolved to a commit before download)
   Account: $account (existing account; its Linux password is used for login)
   Application: /opt/driftos; service: driftos.service
-  Listener: 127.0.0.1:8090; one worker, twelve threads
+  Listener: $listen_address:8090; one worker, twelve threads
+  LAN firewall additions: $open_firewall (LAN mode only); clients: ${lan_cidrs[*]}
   Admin helpers: firewall=$want_firewall apps=$want_apps shares=$want_shares
   Sharing packages: SMB=$want_smb NFS=$want_nfs
   Existing application/unit/config backed up under /var/backups/driftos.
@@ -99,7 +127,8 @@ DriftOS installation plan
   Package installation can run native setup scripts and start services.
   SMB setup, when selected, adds its include and disables Unix password sync.
   Skipped optional flags do not revoke or update previously installed helpers.
-  No firewall rules, reverse proxy, TLS or Docker/Podman access changes.
+  LAN mode resets Secure-cookie/origin settings for direct HTTP.
+  No reverse proxy, TLS or Docker/Podman access changes.
 PLAN
 if (( plan )); then exit 0; fi
 [[ $EUID == 0 ]] || fail 'Run with sudo; use --plan for a read-only preview.'
@@ -311,10 +340,10 @@ if path.exists():
 PY
 # Existing processes on port 8090 must not be mistaken for this service.
 if (( ! prior_active )); then
-  python3 - <<'PY'
-import socket
+  python3 - "$listen_address" <<'PY'
+import socket,sys
 with socket.socket() as probe:
-    try:probe.bind(('127.0.0.1',8090))
+    try:probe.bind((sys.argv[1],8090))
     except OSError:raise SystemExit('Port 8090 is occupied. Stop the conflicting service before installing.')
 PY
 fi
@@ -337,6 +366,16 @@ with os.fdopen(fd,'w') as out:
     out.write('DRIFTOS_USER='+sys.argv[1]+'\nDRIFTOS_PAM_SERVICE=login\nDRIFTOS_HTTPS=0\nDRIFTOS_FILES_ROOT=/\nDRIFTOS_UPLOAD_MAX_MB=1024\nDRIFTOS_SECRET_KEY='+secrets.token_hex(32)+'\n')
 PY
 fi
+if [[ $listen_address == 0.0.0.0 ]]; then
+  # LAN_ENV_PY_BEGIN
+  python3 - <<'PY_LAN_ENV'
+from pathlib import Path
+path=Path('/etc/driftos/driftos.env')
+lines=[line for line in path.read_text().splitlines() if not line.lstrip().startswith(('DRIFTOS_HTTPS=', 'DRIFTOS_ORIGIN='))]
+path.write_text('\n'.join(lines)+'\nDRIFTOS_HTTPS=0\n')
+path.chmod(0o600)
+PY_LAN_ENV
+fi
 write_unit > /etc/systemd/system/driftos.service
 chmod 0644 /etc/systemd/system/driftos.service
 printf '%s\n' "repository=$repo" "requested_ref=$revision" "commit=$commit" > /opt/driftos/INSTALLATION
@@ -350,6 +389,44 @@ for attempt in {1..20}; do
 done
 (( healthy )) || fail 'HTTP health check failed. Inspect journalctl -u driftos.service.'
 committed=1
+
+# LAN_FIREWALL_FUNCTIONS_BEGIN
+configure_lan_firewall() {
+  [[ $listen_address == 0.0.0.0 && $open_firewall == 1 ]] || return 0
+  local ufw_active=0 firewalld_active=0 result cidr zone rule zones
+  if command -v ufw >/dev/null; then
+    result=$(LC_ALL=C ufw status) || fail 'Cannot read UFW status; no automatic firewall rules added.'
+    case "$result" in *'Status: active'*) ufw_active=1;; *'Status: inactive'*) :;; *) fail 'Unrecognized UFW status; configure port 8090 manually.';; esac
+  fi
+  if command -v firewall-cmd >/dev/null && systemctl is-active --quiet firewalld.service; then
+    firewall-cmd --state >/dev/null || fail 'firewalld is not healthy; configure access manually.'
+    firewalld_active=1
+  fi
+  (( ufw_active + firewalld_active <= 1 )) || fail 'Multiple active firewall managers; configure LAN access manually.'
+  if (( ufw_active )); then
+    for cidr in "${lan_cidrs[@]}"; do
+      ufw allow from "$cidr" to any port 8090 proto tcp comment 'DriftOS LAN'
+    done
+    printf 'Added persistent UFW source-scoped LAN rules for 8090/tcp.\n'
+  elif (( firewalld_active )); then
+    zones=$(firewall-cmd --get-active-zones | awk '/^[^[:space:]]/ {print $1}')
+    [[ -n $zones ]] || zones=$(firewall-cmd --get-default-zone)
+    for zone in $zones; do
+      [[ $zone =~ ^[A-Za-z0-9_-]+$ ]] || fail 'Unexpected firewalld zone name.'
+      for cidr in "${lan_cidrs[@]}"; do
+        rule="rule family=\"ipv4\" source address=\"$cidr\" port port=\"8090\" protocol=\"tcp\" accept"
+        firewall-cmd --zone="$zone" --add-rich-rule="$rule"
+        firewall-cmd --permanent --zone="$zone" --add-rich-rule="$rule"
+      done
+    done
+    printf 'Added runtime and persistent firewalld source-scoped LAN rules; no reload performed.\n'
+  else
+    printf 'No active UFW/firewalld found. No firewall was enabled or custom nftables/iptables changed.\n'
+    printf 'Listener is on all IPv4 interfaces; enforce the intended LAN-only policy in your network/native firewall.\n'
+  fi
+}
+# LAN_FIREWALL_FUNCTIONS_END
+configure_lan_firewall
 
 # Optional permissions/packages are deliberately outside core-app rollback.
 if (( want_firewall )); then bash /opt/driftos/deploy/install-firewall-helper.sh "$account"; fi
@@ -405,12 +482,18 @@ DriftOS is installed and enabled at boot.
   Commit:  $commit
   Backup:  $backup
 
-From YOUR COMPUTER (replace SERVER_IP):
-  ssh -N -L 18090:127.0.0.1:8090 $account@SERVER_IP
-Then open http://127.0.0.1:18090 and use $account's SERVER Linux password.
+FINISH
+if [[ $listen_address == 0.0.0.0 ]]; then
+  printf 'Open http://SERVER_LAN_IP:8090 in your browser and use %s\047s SERVER Linux password.\n' "$account"
+  printf 'Direct HTTP sends login/password traffic without encryption; use a trusted LAN.\n'
+else
+  printf 'From your computer: ssh -N -L 18090:127.0.0.1:8090 %s@SERVER_IP\n' "$account"
+  printf 'Then open http://127.0.0.1:18090.\n'
+fi
+cat <<'FINISH'
 Health checks do not verify real PAM login, terminals or client share access.
 Sharing daemons were not explicitly started/reloaded/enabled; package scripts
 may have started them. Review Shares, native configs and firewall policy.
-For direct network access, configure HTTPS/reverse proxy and DRIFTOS_ORIGIN
-using the deployment guide. Do not expose the loopback HTTP listener publicly.
+LAN rules are additive and never remove pre-existing broad allows/denies.
+For HTTPS, use --localhost behind a reverse proxy and configure its exact origin.
 FINISH
